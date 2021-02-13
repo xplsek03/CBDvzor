@@ -1,5 +1,6 @@
 import os
 import json
+import io
 import random
 import copy
 import datetime
@@ -43,6 +44,7 @@ class Parser(object):
 		time.sleep(5)
 		# napln seznam cisly danovych dokladu
 		seznam = self.driver.find_elements_by_xpath("((//div[@id='detail']/div[@class='table-holder']/table/tbody/tr/td[9])/a[2])")
+		seznam = [a.text for a in seznam]
 		return seznam
 
 
@@ -73,8 +75,8 @@ class Parser(object):
 		self.driver.get('https://www.cbdczech.com/admin/login/')
 
 		# vypln formular
-		self.driver.find_element_by_name('email').send_keys("plsekmic@gmail.com")
-		self.driver.find_element_by_name('password').send_keys("Kjkszpj2525!!")
+		self.driver.find_element_by_name('email').send_keys("")
+		self.driver.find_element_by_name('password').send_keys("")
 		self.driver.find_elements_by_class_name("btn")[0].click()
 
 		# COOKIES WORK - mozna kvuli scrapy v budoucnu
@@ -127,6 +129,10 @@ class Parser(object):
 		elif self.month == 4 or self.month == 6 or self.month == 9 or self.month == 11:
 			day = "30"
 
+		# DEBUG OVERRIDE !!
+		#self.month = 2
+		#day = "28"
+
 		# udaje ke generovani feedu
 		WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, "//form[@id='main-modal-form']/table/tbody/tr/td/input[@id='date-from']"))).send_keys("1." + str(self.month) + "." + str(self.year))
 		WebDriverWait(self.driver, 20).until(EC.visibility_of_element_located((By.XPATH, "//form[@id='main-modal-form']/table/tbody/tr/td/input[@id='date-until']"))).send_keys(day + "." + str(self.month) + "." + str(self.year))
@@ -147,7 +153,7 @@ class Parser(object):
 
 		#select.select_by_value(month + "/" + str(year))
 		# DEBUG OVERRIDE !!
-		select.select_by_value("02" + "/" + str(self.year))
+		#select.select_by_value("02" + "/" + str(self.year))
 
 		# udelej seznamy ID z pokladen
 		self.list_brno = self.pokladna("CBD CZECH - prodejna Brno", self.driver)
@@ -173,17 +179,28 @@ class Parser(object):
 				# pokud neni vlozene jmeno
 				if not len(name):
 					# je to Brno walkin
-					xw.write(ET.tostring(elem, encoding='unicode'))
+					s = ET.tostring(elem, encoding='unicode')
+					print(s)
+					xw.write(s)
 				# je vlozene jmeno
 				else:
 					# je to Brno objednavka z shopu
-					xn.write(ET.tostring(elem, encoding='unicode'))
+					s = ET.tostring(elem, encoding='unicode')
+					print(s)
+					xn.write(s)
+					#xn.write()
 
 
 		# aktualni namespace v XML feedu
 		namespaces = {"dat": "http://www.stormware.cz/schema/version_2/data.xsd", "inv":"http://www.stormware.cz/schema/version_2/invoice.xsd", "typ":"http://www.stormware.cz/schema/version_2/type.xsd"}
 
-		with open(self.filepath + 'brno_walkin.xml', 'w+') as bw, open(self.filepath + 'brno_net.xml', 'w+') as bn, open(self.filepath + 'praha_walkin.xml', 'w+') as pw, open(self.filepath + 'praha_net.xml', 'w+') as pn, open(self.filepath + 'zbytek.xml', 'w+') as rest:
+		# registruj namespaces pro zapis
+		ET.register_namespace('dat', 'http://www.stormware.cz/schema/version_2/data.xsd')
+		ET.register_namespace('inv', 'http://www.stormware.cz/schema/version_2/invoice.xsd')
+		ET.register_namespace('typ', 'http://www.stormware.cz/schema/version_2/type.xsd')
+
+		# projdi soubor
+		with io.open(self.filepath + 'brno_walkin.xml', 'w+', encoding='utf-8') as bw, io.open(self.filepath + 'brno_net.xml', 'w+', encoding='utf-8') as bn, io.open(self.filepath + 'praha_walkin.xml', 'w+', encoding='utf-8') as pw, io.open(self.filepath + 'praha_net.xml', 'w+', encoding='utf-8') as pn, io.open(self.filepath + 'zbytek.xml', 'w+', encoding='utf-8') as rest:
 			
 			# zapis zacatky souboru
 			bw.write('<?xml version="1.0" encoding="UTF-8"?>')
@@ -225,10 +242,10 @@ class Parser(object):
 
 # START
 parser = Parser()
-#parser.setdriver()
-#parser.selenium_login()
-#parser.selenium_download()
-#parser.selenium_lists()
+parser.setdriver()
+parser.selenium_login()
+parser.selenium_download()
+parser.selenium_lists()
 parser.generate_feeds()
 
 # naukladej seznamy do docasnych souboru: aby se daly zpracovat i offline
